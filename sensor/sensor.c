@@ -39,6 +39,8 @@
 #include "sensor.h"
 #if defined( ENGINE_CONTROLLER )
 	#include "pressure.h"
+	#include "loadcell.h"
+	#include "temp.h"
 #endif
 
 
@@ -128,28 +130,28 @@ void sensor_init
 	sensor_size_offsets_table[ 11 ].size   = 4;  /* SENSOR_TEMP  */
 #elif defined( ENGINE_CONTROLLER )
 	/* Sensor offsets */
-	sensor_size_offsets_table[ 0  ].offset = 0;  /* SENSOR_ACCX  */
-	sensor_size_offsets_table[ 1  ].offset = 4;  /* SENSOR_ACCY  */
-	sensor_size_offsets_table[ 2  ].offset = 8;  /* SENSOR_ACCZ  */
-	sensor_size_offsets_table[ 3  ].offset = 12; /* SENSOR_GYROX */
-	sensor_size_offsets_table[ 4  ].offset = 16; /* SENSOR_GYROY */
-	sensor_size_offsets_table[ 5  ].offset = 20; /* SENSOR_GYROZ */
-	sensor_size_offsets_table[ 6  ].offset = 24; /* SENSOR_MAGX  */
-	sensor_size_offsets_table[ 7  ].offset = 28; /* SENSOR_MAGY  */
-	sensor_size_offsets_table[ 8  ].offset = 32; /* SENSOR_MAGZ  */
-	sensor_size_offsets_table[ 9  ].offset = 36; /* SENSOR_IMUT  */
+	sensor_size_offsets_table[ 0  ].offset = 0;  /* SENSOR_PT0  */
+	sensor_size_offsets_table[ 1  ].offset = 4;  /* SENSOR_PT1  */
+	sensor_size_offsets_table[ 2  ].offset = 8;  /* SENSOR_PT2  */
+	sensor_size_offsets_table[ 3  ].offset = 12; /* SENSOR_PT3  */
+	sensor_size_offsets_table[ 4  ].offset = 16; /* SENSOR_PT4  */
+	sensor_size_offsets_table[ 5  ].offset = 20; /* SENSOR_PT5  */
+	sensor_size_offsets_table[ 6  ].offset = 24; /* SENSOR_PT6  */
+	sensor_size_offsets_table[ 7  ].offset = 28; /* SENSOR_PT7  */
+	sensor_size_offsets_table[ 8  ].offset = 36; /* SENSOR_TC   */
+	sensor_size_offsets_table[ 9  ].offset = 32; /* SENSOR_LC   */
 
 	/* Sensor Sizes   */
-	sensor_size_offsets_table[ 0  ].size   = 4;  /* SENSOR_ACCX  */
-	sensor_size_offsets_table[ 1  ].size   = 4;  /* SENSOR_ACCY  */
-	sensor_size_offsets_table[ 2  ].size   = 4;  /* SENSOR_ACCZ  */
-	sensor_size_offsets_table[ 3  ].size   = 4;  /* SENSOR_GYROX */
-	sensor_size_offsets_table[ 4  ].size   = 4;  /* SENSOR_GYROY */
-	sensor_size_offsets_table[ 5  ].size   = 4;  /* SENSOR_GYROZ */
-	sensor_size_offsets_table[ 6  ].size   = 4;  /* SENSOR_MAGX  */
-	sensor_size_offsets_table[ 7  ].size   = 4;  /* SENSOR_MAGY  */
-	sensor_size_offsets_table[ 8  ].size   = 4;  /* SENSOR_MAGZ  */
-	sensor_size_offsets_table[ 9  ].size   = 4;  /* SENSOR_IMUT  */
+	sensor_size_offsets_table[ 0  ].size   = 4;  /* SENSOR_PT0  */
+	sensor_size_offsets_table[ 1  ].size   = 4;  /* SENSOR_PT1  */
+	sensor_size_offsets_table[ 2  ].size   = 4;  /* SENSOR_PT2  */
+	sensor_size_offsets_table[ 3  ].size   = 4;  /* SENSOR_PT3  */
+	sensor_size_offsets_table[ 4  ].size   = 4;  /* SENSOR_PT4  */
+	sensor_size_offsets_table[ 5  ].size   = 4;  /* SENSOR_PT5  */
+	sensor_size_offsets_table[ 6  ].size   = 4;  /* SENSOR_PT6  */
+	sensor_size_offsets_table[ 7  ].size   = 4;  /* SENSOR_PT7  */
+	sensor_size_offsets_table[ 8  ].size   = 4;  /* SENSOR_TC   */
+	sensor_size_offsets_table[ 9  ].size   = 4;  /* SENSOR_LC   */
 #endif
 
 } /* sensor_init */
@@ -391,19 +393,21 @@ SENSOR_STATUS sensor_dump
 	BARO_STATUS     temp_status;
 #elif defined( ENGINE_CONTROLLER )
 	PRESSURE_STATUS pt_status;              /* Pressure status codes       */
+	THERMO_STATUS   tc_status;              /* Thermocouple status codes   */
 #endif
 
 /*------------------------------------------------------------------------------
  Initializations 
 ------------------------------------------------------------------------------*/
 #if defined( FLIGHT_COMPUTER )
-	accel_status = IMU_OK;           /* IMU sensor status codes     */       
+	accel_status = IMU_OK;         
 	gyro_status  = IMU_OK;
 	mag_status   = IMU_OK; 
-	press_status = BARO_OK;           /* Baro Sensor status codes    */
+	press_status = BARO_OK;           
 	temp_status  = BARO_OK;
 #elif defined( ENGINE_CONTROLLER )
-	pt_status    = PRESSURE_OK;              /* Pressure status codes       */
+	pt_status    = PRESSURE_OK;          
+	tc_status    = THERMO_OK;        
 #endif
 
 /*------------------------------------------------------------------------------
@@ -428,12 +432,12 @@ SENSOR_STATUS sensor_dump
 	/* Pressure Transducers */
 	pt_status    = pressure_poll_pts( &( sensor_data_ptr -> pt_pressures[0] ) );
 
-	// TODO: Implement thermocouple and load cell functionality
-	/* Thermocouple */
-	sensor_data_ptr -> load_cell_force = 0;
-
 	/* Load cell */
-	sensor_data_ptr -> tc_temp         = 0;
+	sensor_data_ptr -> load_cell_force = loadcell_get_reading();
+
+	/* Thermocouple */
+	tc_status    = temp_get_temp( &( sensor_data_ptr -> tc_temp ), 
+	                              THERMO_HOT_JUNCTION );
 #endif
 
 
@@ -463,9 +467,13 @@ SENSOR_STATUS sensor_dump
 		return SENSOR_OK;
 		}
 #elif defined( ENGINE_CONTROLLER )
-	if ( pt_status != PRESSURE_OK )
+	if      ( pt_status != PRESSURE_OK )
 		{
 		return SENSOR_PT_ERROR;
+		}
+	else if ( tc_status != THERMO_OK   )
+		{
+		return SENSOR_TC_ERROR;
 		}
 	else
 		{
@@ -499,9 +507,11 @@ SENSOR_ID  sensor_id;        /* ID of sensor currently being polled */
 SENSOR_ID* sensor_id_ptr;    /* Pointer to sensor id                */
 
 /* Module return codes */
-#if defined( FLIGHT_COMPUTER )
-	IMU_STATUS  imu_status;   /* IMU Module return codes  */ 
-	BARO_STATUS baro_status; /* Baro module return codes */
+#if   defined( FLIGHT_COMPUTER   )
+	IMU_STATUS    imu_status;      /* IMU Module return codes   */ 
+	BARO_STATUS   baro_status;     /* Baro module return codes  */
+#elif defined( ENGINE_CONTROLLER )
+	THERMO_STATUS thermo_status;   /* Thermocouple return codes */
 #endif
 
 /* Sensor poll memory to prevent multiple calls to same API function */
@@ -514,13 +524,15 @@ SENSOR_ID* sensor_id_ptr;    /* Pointer to sensor id                */
 /*------------------------------------------------------------------------------
  Initializations 
 ------------------------------------------------------------------------------*/
-sensor_id_ptr    = sensor_ids_ptr;
-sensor_id        = *(sensor_id_ptr   );
+sensor_id_ptr     = sensor_ids_ptr;
+sensor_id         = *(sensor_id_ptr   );
 
 /* Module return codes */
-#if defined( FLIGHT_COMPUTER )
-	imu_status  = IMU_OK;
-	baro_status = BARO_OK;
+#if   defined( FLIGHT_COMPUTER   )
+	imu_status    = IMU_OK;
+	baro_status   = BARO_OK;
+#elif defined( ENGINE_CONTROLLER )
+	thermo_status = THERMO_OK;
 #endif
 
 /* Sensor poll memory */
@@ -751,15 +763,18 @@ for ( int i = 0; i < num_sensors; ++i )
 
 			case SENSOR_TC:
 				{
-				// TODO: Thermocouple implementation
-				sensor_data_ptr -> tc_temp = 0;
+				thermo_status = temp_get_temp( &( sensor_data_ptr -> tc_temp ),
+				                               THERMO_HOT_JUNCTION );
+				if ( thermo_status != THERMO_OK )
+					{
+					return SENSOR_TC_ERROR;
+					}
 				break;
 				}
 
 			case SENSOR_LC:
 				{
-				// TODO: Load Cell implementation
-				sensor_data_ptr -> load_cell_force = 0;
+				sensor_data_ptr -> load_cell_force = loadcell_get_reading();
 				break;
 				}
 

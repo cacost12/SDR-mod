@@ -69,6 +69,7 @@ typedef enum
 	SENSOR_UNSUPPORTED_OP        ,
 	SENSOR_IMU_FAIL              ,
 	SENSOR_PT_ERROR              ,
+	SENSOR_TC_ERROR              ,
 	SENSOR_ACCEL_ERROR           ,
     SENSOR_GYRO_ERROR            ,
 	SENSOR_MAG_ERROR             ,
@@ -118,8 +119,8 @@ typedef enum
 		SENSOR_PT5   = 0x05,
 		SENSOR_PT6   = 0x06,
 		SENSOR_PT7   = 0x07,
-		SENSOR_TC    = 0x08,
-		SENSOR_LC    = 0x09
+		SENSOR_LC    = 0x09,
+		SENSOR_TC    = 0x08
 	#endif
 	} SENSOR_IDS;
 
