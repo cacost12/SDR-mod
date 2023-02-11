@@ -73,7 +73,7 @@ if ( file_result != FR_OK )
 	return SD_CARD_MOUNT_FAIL;
 	}
 /*Create a file in SD Card with name given*/
-file_result = f_open(&file_handle, strcat(filename, ".txt"), FA_CREATE_ALWAYS | FA_WRITE);
+file_result = f_open(&file_handle, strcat(filename, ".txt"), FA_OPEN_ALWAYS | FA_WRITE);
 if ( file_result != FR_OK )
 	{
 	return SD_CARD_OPEN_FAIL;
