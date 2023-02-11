@@ -60,7 +60,7 @@ SD_CARD_STATUS write_to_sd_card(char* filename , char* buffer_string_ptr)
 FATFS FatFs_Handle;
 FIL file_handle;
 FRESULT file_result;
-uint32_t bytes_written;
+UINT bytes_written;
 
 /*------------------------------------------------------------------------------
  API function implementation 
