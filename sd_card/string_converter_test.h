@@ -1,17 +1,17 @@
 /*******************************************************************************
 *
 * FILE: 
-* 		sd_card.h
+* 		string_converter_test.h
 *
 * DESCRIPTION: 
-* 		Contains API functions to operate the SD card 
+* 		Testing string converter 
 *
 *******************************************************************************/
 
 
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef SD_CARD_H
-#define SD_CARD_H
+#ifndef STRING_CONVERTER_TEST_H
+#define STRING_CONVERTER_TEST_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,25 +23,9 @@ extern "C" {
  Typdefs 
 ------------------------------------------------------------------------------*/
 
-/* Function return codes */
-
-typedef enum SD_CARD_STATUS{
-	SD_CARD_OK 	= 0	  ,
-	SD_CARD_OPEN_FAIL ,
-	SD_CARD_MOUNT_FAIL,
-	SD_CARD_WRITE_FAIL,	
-	SD_CARD_TIMEOUT
-} SD_CARD_STATUS;
-
 /*------------------------------------------------------------------------------
  Function Prototypes 
 ------------------------------------------------------------------------------*/
-SD_CARD_STATUS write_to_sd_card
-	(
-	char* name,
-	char* buffer
-	);
-
 void reverseString
     (
     char* pnum_str, /* Pointer to the string of a number */
@@ -68,7 +52,7 @@ void dataframe_to_string
 	char*		  pbuffer_str  	   /* Converted data to be returned */
 	);
 
-#endif /* SD_CARD_H */
+#endif /* STRING_CONVERTER_TEST_H */
 
 
 /*******************************************************************************
