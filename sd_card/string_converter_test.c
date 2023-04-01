@@ -165,7 +165,7 @@ float2str(baro_pressure, baro_pressure_str, 2);
 float2str(baro_temp, baro_temp_str, 2);
 sprintf(
 		pbuffer_str, 
-		"time: %lu\taccelX: %d\taccelY: %d\taccelZ:\
+		"time: %d\taccelX: %d\taccelY: %d\taccelZ:\
 		%d\tgyroX: %d\tgyroY: %d\tgyroZ:\
 		%d\tmagX: %d\tmagY: %d\tmagZ:\
 		%d\tbaro_pres: %s\tbaro_temp: %s\t",
