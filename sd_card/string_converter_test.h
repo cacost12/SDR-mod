@@ -42,6 +42,7 @@ void float2str
     (
     float float_num,    /* Float number to be converted to string */
     char* pnum_str,     /* Pointer to the string of a number */
+    int str_len,        /* Length (size) of the string */
     int decimal         /* Numbers after a decimal point */
     );
 

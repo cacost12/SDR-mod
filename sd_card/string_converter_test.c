@@ -93,10 +93,10 @@ while ( num/10 != 0 )
     index++;
     }
 num_str[index] = ( num%10 ) + '0';
-
+index++;
 reverseString( num_str, index );        /* Reverse string to be in the correct order*/
 
-return index+1                          /* String size = last index + 1 */;
+return index;                          /* String size = last index + 1 */;
 }
 
 
@@ -114,9 +114,11 @@ void float2str
     (
     float float_num,    /* Float number to be converted to string */
     char* pnum_str,     /* Pointer to the string of a number */
+    int str_len,        /* Length (size) of the string */
     int decimal         /* Numbers after a decimal point */
     )
 {
+memset(pnum_str, 0, sizeof(char) * str_len ); /* Clean string array every convert */
 int integer_num = (int) float_num;
 float fractional_part = float_num - (float) integer_num;
 
@@ -158,17 +160,19 @@ uint16_t mag_z 			= sensor_data_ptr->imu_data.mag_z;
 // uint32_t baro_temp		= (uint32_t) sensor_data.baro_temp;
 float 	 baro_pressure  = sensor_data_ptr->baro_pressure;
 float	 baro_temp		= sensor_data_ptr->baro_temp;
-char	 baro_pressure_str[7];
+
 char	 baro_temp_str[7];
 
-float2str(baro_pressure, baro_pressure_str, 2);
-float2str(baro_temp, baro_temp_str, 2);
+float2str(baro_temp, baro_temp_str, sizeof(baro_temp_str) / sizeof(baro_temp_str[0]) , 2);
+char	 baro_pressure_str[7];
+
+float2str(baro_pressure, baro_pressure_str, sizeof(baro_pressure_str) / sizeof(baro_pressure_str[0]), 2);
 sprintf(
 		pbuffer_str, 
-		"time: %d\taccelX: %d\taccelY: %d\taccelZ:\
-		%d\tgyroX: %d\tgyroY: %d\tgyroZ:\
-		%d\tmagX: %d\tmagY: %d\tmagZ:\
-		%d\tbaro_pres: %s\tbaro_temp: %s\t",
+		"time: %d,accelX: %d,accelY: %d,accelZ:"
+        "%d,gyroX: %d,gyroY: %d,gyroZ: "
+        "%d,magX: %d,magY: %d,magZ: "
+        "%d,baro_pres: %s,baro_temp: %s",
 		time, accel_x, accel_y, accel_z,
 		gyro_x, gyro_y, gyro_z, 
 		mag_x, mag_y, mag_z, 
