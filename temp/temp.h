@@ -197,6 +197,10 @@ THERMO_STATUS temp_get_device_id
     uint8_t* device_id_ptr
     );
 
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* THERMO_H */
 
 /*******************************************************************************

@@ -9,9 +9,13 @@
 *
 *******************************************************************************/
 
-// /* Define to prevent recursive inclusion -------------------------------------*/
+/* Define to prevent recursive inclusion -------------------------------------*/
 #ifndef SENSOR_H
 #define SENSOR_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "stm32h7xx_hal.h"
 #if defined( FLIGHT_COMPUTER )
@@ -53,6 +57,22 @@ Includes
 	/* General */
 	#define NUM_SENSORS         ( 10   )
 	#define SENSOR_DATA_SIZE    ( 40   )
+#elif defined( FLIGHT_COMPUTER_LITE )
+	/* General */
+	#define NUM_SENSORS         ( 2    )
+	#define SENSOR_DATA_SIZE    ( 8    )
+#elif defined( VALVE_CONTROLLER     )
+	/* General */
+	#define NUM_SENSORS         ( 2   )
+	#define SENSOR_DATA_SIZE    ( 8   )
+
+	/* Timeouts */
+	#ifndef SDR_DEBUG
+		#define HAL_SENSOR_TIMEOUT ( 40 )
+	#else
+		/* Disable timeouts when debugging */
+		#define HAL_SENSOR_TIMEOUT ( 0xFFFFFFFF )
+	#endif
 #else
 	#error Board is not compatible with SENSOR module
 #endif
@@ -70,6 +90,7 @@ typedef enum
 	SENSOR_IMU_FAIL              ,
 	SENSOR_PT_ERROR              ,
 	SENSOR_TC_ERROR              ,
+	SENSOR_LC_ERROR              ,
 	SENSOR_ACCEL_ERROR           ,
     SENSOR_GYRO_ERROR            ,
 	SENSOR_MAG_ERROR             ,
@@ -78,6 +99,8 @@ typedef enum
 	SENSOR_UNRECOGNIZED_SENSOR_ID,
 	SENSOR_POLL_FAIL_TO_START    ,
 	SENSOR_POLL_FAIL             ,
+	SENSOR_POLL_UNRECOGNIZED_CMD ,
+	SENSOR_VALVE_UART_ERROR      ,
     SENSOR_FAIL   
     } SENSOR_STATUS;
 
@@ -121,20 +144,32 @@ typedef enum
 		SENSOR_PT7   = 0x07,
 		SENSOR_LC    = 0x09,
 		SENSOR_TC    = 0x08
+	#elif defined( FLIGHT_COMPUTER_LITE )
+		SENSOR_PRES  = 0x00,
+		SENSOR_TEMP  = 0x01
+	#elif defined( VALVE_CONTROLLER     )
+		SENSOR_ENCO  = 0x00,
+		SENSOR_ENCF  = 0x01
 	#endif
 	} SENSOR_IDS;
 
-/* Sensor Data in integer format */
+/* Sensor Data */
 typedef struct SENSOR_DATA 
 	{
-	#if defined( FLIGHT_COMPUTER )
+	#if   defined( FLIGHT_COMPUTER      )
 		IMU_DATA imu_data;
 		float    baro_pressure;
 		float    baro_temp;	
-	#elif defined( ENGINE_CONTROLLER )
+	#elif defined( ENGINE_CONTROLLER    )
 		uint32_t pt_pressures[ NUM_PTS ];
 		uint32_t load_cell_force;
 		uint32_t tc_temp;
+	#elif defined( FLIGHT_COMPUTER_LITE )
+		float baro_pressure;
+		float baro_temp;
+	#elif defined( VALVE_CONTROLLER     )
+		int32_t lox_valve_pos;
+		int32_t fuel_valve_pos;
 	#endif /* #elif defined( ENGINE_CONTROLLER ) */
 	} SENSOR_DATA;
 
@@ -150,7 +185,6 @@ typedef struct SENSOR_DATA_SIZE_OFFSETS
  Public Function Prototypes 
 ------------------------------------------------------------------------------*/
 
-#if defined( TERMINAL ) 
 /* Initialize the sensor module */
 void sensor_init 
 	(
@@ -160,7 +194,12 @@ void sensor_init
 /* Execute a sensor subcommand */
 SENSOR_STATUS sensor_cmd_execute
 	(
-	uint8_t subcommand
+	#ifndef VALVE_CONTROLLER
+		uint8_t subcommand
+	#else
+		uint8_t    subcommand,   /* SDEC subcommand         */
+		CMD_SOURCE cmd_source    /* serial interface source */
+	#endif
     );
 
 /* Poll specific sensors on the board */
@@ -171,17 +210,17 @@ SENSOR_STATUS sensor_poll
 	uint8_t    num_sensors
 	);
 
-#endif /* #if defined( TERMINAL )  */
-
 /* Dump all sensor readings to console */
 SENSOR_STATUS sensor_dump
 	(
     SENSOR_DATA* sensor_data_ptr 
     );
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* SENSOR_H */
-
 
 /*******************************************************************************
 * END OF FILE                                                                  * 

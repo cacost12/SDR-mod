@@ -51,34 +51,32 @@ static LOADCELL_STATUS poll_loadcell_adc
 *       Read the load cell force                                               *
 *                                                                              *
 *******************************************************************************/
-uint32_t loadcell_get_reading 
+LOADCELL_STATUS loadcell_get_reading 
 	(
-	void
+    uint32_t* loadcell_reading_ptr /* Pointer to output data */
     )
 {
 /*------------------------------------------------------------------------------
  Local Variables  
 ------------------------------------------------------------------------------*/
 LOADCELL_STATUS loadcell_status; /* Return code from ADC operation */ 
-uint32_t        loadcell_reading; /* Readout from loadcell ADC */
 
 
 /*------------------------------------------------------------------------------
  Initializations 
 ------------------------------------------------------------------------------*/
 loadcell_status  = LOADCELL_OK;
-loadcell_reading = 0;
 
 
 /*------------------------------------------------------------------------------
  Poll ADC once 
 ------------------------------------------------------------------------------*/
-loadcell_status = poll_loadcell_adc( 1, &loadcell_reading );
+loadcell_status = poll_loadcell_adc( 1, loadcell_reading_ptr );
 if ( loadcell_status != LOADCELL_OK )
 	{
-    Error_Handler();
+    return loadcell_status;
     }
-return loadcell_reading;
+return LOADCELL_OK;
 
 } /* loadcell_get_reading */
 

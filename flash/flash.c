@@ -23,6 +23,8 @@
 	#include "sdr_pin_defines_A0002.h"
 #elif defined( ENGINE_CONTROLLER )
 	#include "sdr_pin_defines_L0002.h"
+#elif defined( FLIGHT_COMPUTER_LITE )
+	#include "sdr_pin_defines_A0007.h"
 #endif 
 
 
@@ -266,14 +268,12 @@ switch ( opcode )
 			flash_status = flash_read( pflash_handle, sizeof( buffer ) );
 			if( flash_status == FLASH_OK )
 				{
-				usb_transmit( &buffer  ,
-						      sizeof( buffer ),
-						      HAL_FLASH_TIMEOUT );
+				usb_transmit( &buffer, sizeof( buffer ), HAL_FLASH_TIMEOUT );
 				}
 			else
 				{
 				/* Extract Failed */
-				Error_Handler();
+				return FLASH_EXTRACT_ERROR;
 				}
 
 			/* Read from next address */
@@ -742,7 +742,7 @@ uint8_t           address_bytes[3]; /* Flash memory address in byte form      */
 ------------------------------------------------------------------------------*/
 flash_opcode  = FLASH_OP_HW_AAI_PROGRAM; 
 flash_status  = FLASH_OK;
-timeout       = 100;
+timeout       = pflash_handle -> num_bytes; /* 1 ms/byte timeout */
 timeout_ctr   = 0;
 pbuffer       = pflash_handle -> pbuffer;
 address_to_bytes( pflash_handle -> address, &address_bytes[0] );
@@ -963,10 +963,10 @@ return FLASH_OK;
 
 /*******************************************************************************
 *                                                                              *
-* PROCEDURE:                                                                   * 
+* PROCEDURE:                                                                   *
 * 		flash_erase                                                            *
 *                                                                              *
-* DESCRIPTION:                                                                 * 
+* DESCRIPTION:                                                                 *
 *       erases the entire flash chip                                           *
 *                                                                              *
 *******************************************************************************/
@@ -1030,6 +1030,117 @@ else
 	}
 
 } /* flash_erase */
+
+
+/*******************************************************************************
+*                                                                              *
+* PROCEDURE:                                                                   *
+* 		flash_block_erase                                                      *
+*                                                                              *
+* DESCRIPTION:                                                                 *
+*       Erase a block of flash                                                 *
+*                                                                              *
+*******************************************************************************/
+FLASH_STATUS flash_block_erase
+	(
+	FLASH_BLOCK      flash_block_num, /* Block of flash to erase */
+	FLASH_BLOCK_SIZE size             /* Size of block           */
+	)
+{
+/*------------------------------------------------------------------------------
+ Local variables 
+------------------------------------------------------------------------------*/
+int8_t       hal_status[2];       /* Status code return by hal spi functions  */
+uint8_t      flash_opcode;        /* Data to be transmitted over SPI          */
+FLASH_STATUS flash_status;        /* Return codes from flash API              */
+uint32_t     flash_addr;          /* Address of block to erase                */
+uint8_t      flash_addr_bytes[3]; /* Address of block to erase in byte form   */
+
+
+/*------------------------------------------------------------------------------
+ Initializations 
+------------------------------------------------------------------------------*/
+flash_status = FLASH_OK;
+
+
+/*------------------------------------------------------------------------------
+ Pre-processing 
+------------------------------------------------------------------------------*/
+
+/* Determine block setting */
+switch( size )
+	{
+	case FLASH_BLOCK_4K:
+		{
+		flash_opcode = FLASH_OP_HW_4K_ERASE;
+		flash_addr   = flash_block_num*(0x1000);
+		address_to_bytes( flash_addr, &flash_addr_bytes[0] );
+		break;
+		}
+
+	case FLASH_BLOCK_32K:
+		{
+		flash_opcode = FLASH_OP_HW_32K_ERASE;
+		flash_addr   = flash_block_num*(0x8000);
+		address_to_bytes( flash_addr, &flash_addr_bytes[0] );
+		break;
+		}
+
+	case FLASH_BLOCK_64K:
+		{
+		flash_opcode = FLASH_OP_HW_64K_ERASE;
+		flash_addr   = flash_block_num*(0x10000);
+		address_to_bytes( flash_addr, &flash_addr_bytes[0] );
+
+		/* Error check */
+		if ( flash_block_num >= FLASH_BLOCK_8 )
+			{
+			return FLASH_ADDR_OUT_OF_BOUNDS;
+			}
+		break;
+		}
+	}
+
+/* Check if write_enabled */
+if( !( write_enabled ) )
+    {
+    return FLASH_WRITE_PROTECTED;
+    }
+
+
+/*------------------------------------------------------------------------------
+ API function implementation
+------------------------------------------------------------------------------*/
+
+/* Enable writing to flash */
+flash_status = write_enable();
+
+/* Sector erase sequence */
+HAL_GPIO_WritePin( FLASH_SS_GPIO_PORT, FLASH_SS_PIN, GPIO_PIN_RESET );
+hal_status[0] = HAL_SPI_Transmit( &( FLASH_SPI )        ,
+							      &flash_opcode         ,
+							      sizeof( flash_opcode ),
+							      HAL_DEFAULT_TIMEOUT );
+hal_status[1] = HAL_SPI_Transmit( &( FLASH_SPI )            , 
+                                  &flash_addr_bytes[0]      ,
+								  sizeof( flash_addr_bytes ), 
+								  HAL_DEFAULT_TIMEOUT );
+HAL_GPIO_WritePin( FLASH_SS_GPIO_PORT, FLASH_SS_PIN, GPIO_PIN_SET );
+
+/* Return status code */
+if      ( hal_status[0] != HAL_OK || hal_status[1] != HAL_OK )
+	{
+	return FLASH_SPI_ERROR;
+	}
+else if ( flash_status != FLASH_OK )
+	{
+	return FLASH_FAIL;
+	}
+else
+	{
+	return FLASH_OK;
+	}
+} /* flash_block_erase */
 
 
 /*------------------------------------------------------------------------------

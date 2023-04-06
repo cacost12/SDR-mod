@@ -20,10 +20,14 @@
 /*------------------------------------------------------------------------------
  MCU Pins 
 ------------------------------------------------------------------------------*/
-#if   defined( FLIGHT_COMPUTER   )
+#if   defined( FLIGHT_COMPUTER      )
 	#include "sdr_pin_defines_A0002.h"
-#elif defined( ENGINE_CONTROLLER )
+#elif defined( ENGINE_CONTROLLER    )
 	#include "sdr_pin_defines_L0002.h"
+#elif defined( FLIGHT_COMPUTER_LITE )
+	#include "sdr_pin_defines_A0007.h"
+#elif defined( VALVE_CONTROLLER     )
+	#include "sdr_pin_defines_L0005.h"
 #endif 
 
 
@@ -34,6 +38,8 @@
 #if defined( FLIGHT_COMPUTER )
 	#include "imu.h"
 	#include "baro.h"
+#elif defined( FLIGHT_COMPUTER_LITE )
+	#include "baro.h"
 #endif
 #include "usb.h"
 #include "sensor.h"
@@ -42,23 +48,23 @@
 	#include "loadcell.h"
 	#include "temp.h"
 #endif
+#if defined( VALVE_CONTROLLER  )
+	#include "valve.h"
+#endif
 
 
 /*------------------------------------------------------------------------------
  Global Variables 
 ------------------------------------------------------------------------------*/
 
-#if defined( TERMINAL )
 /* Hash table of sensor readout sizes and offsets */
 static SENSOR_DATA_SIZE_OFFSETS sensor_size_offsets_table[ NUM_SENSORS ];
-#endif
 
 
 /*------------------------------------------------------------------------------
  Internal function prototypes 
 ------------------------------------------------------------------------------*/
 
-#if defined( TERMINAL )
 /* Sensor ID to size and pointer mapping */
 void static sensor_map
 	(
@@ -77,14 +83,12 @@ void static extract_sensor_bytes
 	uint8_t*     sensor_data_bytes_ptr,
 	uint8_t*     num_sensor_bytes
 	);
-#endif
 
 
 /*------------------------------------------------------------------------------
  API Functions 
 ------------------------------------------------------------------------------*/
 
-#if defined( TERMINAL )
 /*******************************************************************************
 *                                                                              *
 * PROCEDURE:                                                                   *
@@ -152,6 +156,22 @@ void sensor_init
 	sensor_size_offsets_table[ 7  ].size   = 4;  /* SENSOR_PT7  */
 	sensor_size_offsets_table[ 8  ].size   = 4;  /* SENSOR_TC   */
 	sensor_size_offsets_table[ 9  ].size   = 4;  /* SENSOR_LC   */
+#elif defined( FLIGHT_COMPUTER_LITE )
+	/* Sensor offsets */
+	sensor_size_offsets_table[ 0 ].offset = 0; /* SENSOR_PRES  */
+	sensor_size_offsets_table[ 1 ].offset = 4; /* SENSOR_TEMP  */
+
+	/* Sensor Sizes   */
+	sensor_size_offsets_table[ 0 ].size   = 4;  /* SENSOR_PRES  */
+	sensor_size_offsets_table[ 1 ].size   = 4;  /* SENSOR_TEMP  */
+#elif defined( VALVE_CONTROLLER     )
+	/* Sensor offsets */
+	sensor_size_offsets_table[ 0 ].offset = 0;  /* SENSOR_ENCO  */
+	sensor_size_offsets_table[ 1 ].offset = 4;  /* SENSOR_ENCF  */
+
+	/* Sensor sizes */
+	sensor_size_offsets_table[ 0 ].size   = 4;  /* SENSOR_ENCO */
+	sensor_size_offsets_table[ 1 ].size   = 4;  /* SENSOR_ENCF */
 #endif
 
 } /* sensor_init */
@@ -168,7 +188,12 @@ void sensor_init
 *******************************************************************************/
 SENSOR_STATUS sensor_cmd_execute 
 	(
-    uint8_t subcommand 
+	#ifndef VALVE_CONTROLLER
+		uint8_t subcommand 
+	#else
+		uint8_t    subcommand,   /* SDEC subcommand         */
+		CMD_SOURCE cmd_source    /* Serial interface source */
+	#endif
     )
 {
 
@@ -190,12 +215,18 @@ uint8_t       poll_sensors[ SENSOR_MAX_NUM_POLL ];   /* Codes for sensors to
                                                         be polled             */
 uint8_t       sensor_poll_cmd;                       /* Command codes used by 
                                                         sensor poll           */
+#ifdef VALVE_CONTROLLER
+	VALVE_STATUS valve_status; /* status codes from valve API */
+#endif
 
 /*------------------------------------------------------------------------------
  Initializations  
 ------------------------------------------------------------------------------*/
 usb_status      = USB_OK;
 sensor_status   = SENSOR_OK;
+#ifdef VALVE_CONTROLLER
+	valve_status = VALVE_OK;
+#endif
 num_sensors     = 0;
 sensor_poll_cmd = 0;
 memset( &sensor_data_bytes[0], 0, sizeof( sensor_data_bytes ) );
@@ -214,48 +245,149 @@ switch ( subcommand )
     case SENSOR_POLL_CODE:
 		{
 		/* Determine the number of sensors to poll */
-		usb_status = usb_receive( &num_sensors, 
-		                          sizeof( num_sensors ), 
-								  HAL_DEFAULT_TIMEOUT );
-		if ( usb_status != USB_OK )
-			{
-			return SENSOR_USB_FAIL;
-			}
+		#ifndef VALVE_CONTROLLER 
+			usb_status = usb_receive( &num_sensors, 
+									sizeof( num_sensors ), 
+									HAL_DEFAULT_TIMEOUT );
+			if ( usb_status != USB_OK )
+				{
+				return SENSOR_USB_FAIL;
+				}
+		#else
+			if ( cmd_source == CMD_SOURCE_USB )
+				{
+				usb_status = usb_receive( &num_sensors, 
+										sizeof( num_sensors ), 
+										HAL_DEFAULT_TIMEOUT );
+				if ( usb_status != USB_OK )
+					{
+					return SENSOR_USB_FAIL;
+					}
+				}
+			else
+				{
+				valve_status = valve_receive( &num_sensors, 
+				                              sizeof( num_sensors ), 
+											  HAL_DEFAULT_TIMEOUT );
+				if ( valve_status != VALVE_OK )
+					{
+					return SENSOR_VALVE_UART_ERROR;
+					}
+				}
+		#endif /* #ifdef VALVE_CONTROLLER */
 
 		/* Determine which sensors to poll */
-		usb_status = usb_receive( &poll_sensors[0],
-		                          num_sensors     , 
-                                  HAL_SENSOR_TIMEOUT );
-		if ( usb_status != USB_OK )
-			{
-			return SENSOR_USB_FAIL;
-			}
+		#ifndef VALVE_CONTROLLER 
+			usb_status = usb_receive( &poll_sensors[0],
+									num_sensors     , 
+									HAL_SENSOR_TIMEOUT );
+			if ( usb_status != USB_OK )
+				{
+				return SENSOR_USB_FAIL;
+				}
+		#else
+			if ( cmd_source == CMD_SOURCE_USB )
+				{
+				usb_status = usb_receive( &poll_sensors[0],
+										num_sensors     , 
+										HAL_SENSOR_TIMEOUT );
+				if ( usb_status != USB_OK )
+					{
+					return SENSOR_USB_FAIL;
+					}
+				}
+			else
+				{
+				valve_status = valve_receive( &poll_sensors[0],
+											num_sensors     ,
+											HAL_SENSOR_TIMEOUT );
+				if ( valve_status != VALVE_OK )
+					{
+					return SENSOR_VALVE_UART_ERROR;
+					}
+				}
+		#endif /* #ifndef VALVE_CONTROLLER */
 
 		/* Receive initiating command code  */
-		usb_status = usb_receive( &sensor_poll_cmd,
-		                           sizeof( sensor_poll_cmd ),
-								   HAL_DEFAULT_TIMEOUT );
-		if      ( usb_status      != USB_OK            )
-			{
-			return SENSOR_USB_FAIL; /* USB error */
-			}
-		else if ( sensor_poll_cmd != SENSOR_POLL_START )
-			{
-			/* SDEC fails to initiate sensor poll */
-			return SENSOR_POLL_FAIL_TO_START;
-			}
+		#ifndef VALVE_CONTROLLER
+			usb_status = usb_receive( &sensor_poll_cmd,
+									sizeof( sensor_poll_cmd ),
+									HAL_DEFAULT_TIMEOUT );
+			if      ( usb_status      != USB_OK            )
+				{
+				return SENSOR_USB_FAIL; /* USB error */
+				}
+			else if ( sensor_poll_cmd != SENSOR_POLL_START )
+				{
+				/* SDEC fails to initiate sensor poll */
+				return SENSOR_POLL_FAIL_TO_START;
+				}
+		#else
+			if ( cmd_source == CMD_SOURCE_USB )
+				{
+				usb_status = usb_receive( &sensor_poll_cmd,
+										sizeof( sensor_poll_cmd ),
+										HAL_DEFAULT_TIMEOUT );
+				if      ( usb_status      != USB_OK            )
+					{
+					return SENSOR_USB_FAIL; /* USB error */
+					}
+				else if ( sensor_poll_cmd != SENSOR_POLL_START )
+					{
+					/* SDEC fails to initiate sensor poll */
+					return SENSOR_POLL_FAIL_TO_START;
+					}
+				}
+			else
+				{
+				valve_status = valve_receive( &sensor_poll_cmd, 
+											sizeof( sensor_poll_cmd ), 
+											HAL_DEFAULT_TIMEOUT );
+				if ( valve_status != VALVE_OK )
+					{
+					return SENSOR_VALVE_UART_ERROR;
+					}
+				else if ( sensor_poll_cmd != SENSOR_POLL_START )
+					{
+					return SENSOR_POLL_FAIL_TO_START;
+					}
+				}
+		#endif
 
 		/* Start polling sensors */
 		while ( sensor_poll_cmd != SENSOR_POLL_STOP )
 			{
 			/* Get command code */
-			usb_status = usb_receive( &sensor_poll_cmd         ,
-			                          sizeof( sensor_poll_cmd ),
-									  HAL_DEFAULT_TIMEOUT );
-			if ( usb_status != USB_OK ) 
-				{
-				return SENSOR_USB_FAIL;
-				}
+			#ifndef VALVE_CONTROLLER 
+				usb_status = usb_receive( &sensor_poll_cmd         ,
+										sizeof( sensor_poll_cmd ),
+										HAL_DEFAULT_TIMEOUT );
+				if ( usb_status != USB_OK ) 
+					{
+					return SENSOR_USB_FAIL;
+					}
+			#else
+				if ( cmd_source == CMD_SOURCE_USB )
+					{
+					usb_status = usb_receive( &sensor_poll_cmd         ,
+											sizeof( sensor_poll_cmd ),
+											HAL_DEFAULT_TIMEOUT );
+					if ( usb_status != USB_OK ) 
+						{
+						return SENSOR_USB_FAIL;
+						}
+					}
+				else
+					{
+					valve_status = valve_receive( &sensor_poll_cmd         , 
+					                              sizeof( sensor_poll_cmd ), 
+												  HAL_DEFAULT_TIMEOUT );
+					if ( valve_status != VALVE_OK )
+						{
+						return SENSOR_VALVE_UART_ERROR;
+						}
+					}
+			#endif /* #ifndef VALVE_CONTROLLER */
 			
 			/* Execute command */
 			switch ( sensor_poll_cmd )
@@ -302,9 +434,24 @@ switch ( subcommand )
 					/* Poll USB port until resume signal arrives */
 					while( sensor_poll_cmd != SENSOR_POLL_RESUME )
 						{
-						usb_receive( &sensor_poll_cmd, 
-						             sizeof( sensor_poll_cmd ),
-									 HAL_DEFAULT_TIMEOUT );
+						#ifndef VALVE_CONTROLLER
+							usb_receive( &sensor_poll_cmd, 
+										sizeof( sensor_poll_cmd ),
+										HAL_DEFAULT_TIMEOUT );
+						#else
+							if ( cmd_source == CMD_SOURCE_USB )
+								{
+								usb_receive( &sensor_poll_cmd, 
+											sizeof( sensor_poll_cmd ),
+											HAL_DEFAULT_TIMEOUT );
+								}
+							else
+								{
+								valve_receive( &sensor_poll_cmd         , 
+								               sizeof( sensor_poll_cmd ), 
+											   HAL_DEFAULT_TIMEOUT );
+								}
+						#endif
 						}
 					break;
 					} /* case SENSOR_POLL_WAIT */
@@ -312,8 +459,7 @@ switch ( subcommand )
 				/* Erroneous Command*/
 				default:
 					{
-					Error_Handler();
-					break;
+					return SENSOR_POLL_UNRECOGNIZED_CMD;
 					}
 				} /* switch( sensor_poll_cmd ) */
 
@@ -328,9 +474,24 @@ switch ( subcommand )
 	case SENSOR_DUMP_CODE: 
 		{
 		/* Tell the PC how many bytes to expect */
-		usb_transmit( &num_sensor_bytes,
-                      sizeof( num_sensor_bytes ), 
-                      HAL_DEFAULT_TIMEOUT );
+		#ifndef VALVE_CONTROLLER 
+			usb_transmit( &num_sensor_bytes,
+						sizeof( num_sensor_bytes ), 
+						HAL_DEFAULT_TIMEOUT );
+		#else
+			if ( cmd_source == CMD_SOURCE_USB )
+				{
+				usb_transmit( &num_sensor_bytes,
+							sizeof( num_sensor_bytes ), 
+							HAL_DEFAULT_TIMEOUT );
+				}
+			else
+				{
+				valve_transmit( &num_sensor_bytes, 
+				                sizeof( num_sensor_bytes ), 
+								HAL_DEFAULT_TIMEOUT );
+				}
+		#endif /* #ifndef VALVE_CONTROLLER */
 
 		/* Get the sensor readings */
 	    sensor_status = sensor_dump( &sensor_data );	
@@ -341,9 +502,24 @@ switch ( subcommand )
 		/* Transmit sensor readings to PC */
 		if ( sensor_status == SENSOR_OK )
 			{
-			usb_transmit( &sensor_data_bytes[0]      , 
-                          sizeof( sensor_data_bytes ), 
-                          HAL_SENSOR_TIMEOUT );
+			#ifndef VALVE_CONTROLLER
+				usb_transmit( &sensor_data_bytes[0]      , 
+							sizeof( sensor_data_bytes ), 
+							HAL_SENSOR_TIMEOUT );
+			#else
+				if ( cmd_source == CMD_SOURCE_USB )
+					{
+					usb_transmit( &sensor_data_bytes[0]      , 
+								sizeof( sensor_data_bytes ), 
+								HAL_SENSOR_TIMEOUT );
+					}
+				else
+					{
+					valve_transmit( &sensor_data_bytes[0],
+					                sizeof( sensor_data_bytes ), 
+									HAL_SENSOR_TIMEOUT );
+					}
+			#endif /* #ifndef VALVE_CONTROLLER */
 			return ( sensor_status );
             }
 		else
@@ -364,8 +540,6 @@ switch ( subcommand )
 
 } /* sensor_cmd_execute */
 
-#endif /* #if  defined( TERMINAL ) */
-
 
 /*******************************************************************************
 *                                                                              *
@@ -385,29 +559,36 @@ SENSOR_STATUS sensor_dump
 /*------------------------------------------------------------------------------
  Local variables 
 ------------------------------------------------------------------------------*/
-#if defined( FLIGHT_COMPUTER )
+#if   defined( FLIGHT_COMPUTER      )
 	IMU_STATUS      accel_status;           /* IMU sensor status codes     */       
 	IMU_STATUS      gyro_status;
 	IMU_STATUS      mag_status; 
 	BARO_STATUS     press_status;           /* Baro Sensor status codes    */
 	BARO_STATUS     temp_status;
-#elif defined( ENGINE_CONTROLLER )
+#elif defined( ENGINE_CONTROLLER    )
 	PRESSURE_STATUS pt_status;              /* Pressure status codes       */
 	THERMO_STATUS   tc_status;              /* Thermocouple status codes   */
+	LOADCELL_STATUS lc_status;              /* Loadcell status codes       */
+#elif defined( FLIGHT_COMPUTER_LITE )
+	BARO_STATUS     press_status;           /* Baro Sensor status codes    */
+	BARO_STATUS     temp_status;
 #endif
 
 /*------------------------------------------------------------------------------
  Initializations 
 ------------------------------------------------------------------------------*/
-#if defined( FLIGHT_COMPUTER )
+#if   defined( FLIGHT_COMPUTER      )
 	accel_status = IMU_OK;         
 	gyro_status  = IMU_OK;
 	mag_status   = IMU_OK; 
 	press_status = BARO_OK;           
 	temp_status  = BARO_OK;
-#elif defined( ENGINE_CONTROLLER )
+#elif defined( ENGINE_CONTROLLER    )
 	pt_status    = PRESSURE_OK;          
 	tc_status    = THERMO_OK;        
+#elif defined( FLIGHT_COMPUTER_LITE )
+	press_status = BARO_OK;           
+	temp_status  = BARO_OK;
 #endif
 
 /*------------------------------------------------------------------------------
@@ -433,11 +614,20 @@ SENSOR_STATUS sensor_dump
 	pt_status    = pressure_poll_pts( &( sensor_data_ptr -> pt_pressures[0] ) );
 
 	/* Load cell */
-	sensor_data_ptr -> load_cell_force = loadcell_get_reading();
+	lc_status    = loadcell_get_reading( &( sensor_data_ptr -> load_cell_force ) );
 
 	/* Thermocouple */
 	tc_status    = temp_get_temp( &( sensor_data_ptr -> tc_temp ), 
 	                              THERMO_HOT_JUNCTION );
+#elif defined( FLIGHT_COMPUTER_LITE )
+	/* Baro sensors */
+	temp_status  = baro_get_temp    ( &(sensor_data_ptr -> baro_temp     ) );
+	press_status = baro_get_pressure( &(sensor_data_ptr -> baro_pressure ) );
+
+#elif defined( VALVE_CONTROLLER     )
+	/* Main Valve encoders */
+	sensor_data_ptr -> lox_valve_pos  = valve_get_ox_valve_pos();
+	sensor_data_ptr -> fuel_valve_pos = valve_get_fuel_valve_pos();
 #endif
 
 
@@ -475,15 +665,31 @@ SENSOR_STATUS sensor_dump
 		{
 		return SENSOR_TC_ERROR;
 		}
+	else if ( lc_status != LOADCELL_OK )
+		{
+		return SENSOR_LC_ERROR;
+		}
 	else
 		{
 		return SENSOR_OK;
 		}
+#elif defined( FLIGHT_COMPUTER_LITE )
+	if ( press_status != BARO_OK ||
+		 temp_status  != BARO_OK  )
+		{
+		return SENSOR_BARO_ERROR;
+		}
+	else
+		{
+		return SENSOR_OK;
+		}
+#elif defined( VALVE_CONTROLLER     )
+	return SENSOR_OK;
 #endif /* #elif defined( ENGINE_CONTROLLER )*/
 
 } /* sensor_dump */
 
-#if defined( TERMINAL )
+
 /*******************************************************************************
 *                                                                              *
 * PROCEDURE:                                                                   *
@@ -508,10 +714,14 @@ SENSOR_ID* sensor_id_ptr;    /* Pointer to sensor id                */
 
 /* Module return codes */
 #if   defined( FLIGHT_COMPUTER   )
-	IMU_STATUS    imu_status;      /* IMU Module return codes   */ 
-	BARO_STATUS   baro_status;     /* Baro module return codes  */
+	IMU_STATUS      imu_status;      /* IMU Module return codes   */ 
+	BARO_STATUS     baro_status;     /* Baro module return codes  */
 #elif defined( ENGINE_CONTROLLER )
-	THERMO_STATUS thermo_status;   /* Thermocouple return codes */
+	THERMO_STATUS   thermo_status;   /* Thermocouple return codes */
+	LOADCELL_STATUS lc_status;       /* Loadcell return codes     */
+	PRESSURE_STATUS pt_status;       /* PT return codes           */
+#elif defined( FLIGHT_COMPUTER_LITE )
+	BARO_STATUS     baro_status;     /* Baro module return codes  */
 #endif
 
 /* Sensor poll memory to prevent multiple calls to same API function */
@@ -533,6 +743,10 @@ sensor_id         = *(sensor_id_ptr   );
 	baro_status   = BARO_OK;
 #elif defined( ENGINE_CONTROLLER )
 	thermo_status = THERMO_OK;
+	lc_status     = LOADCELL_OK;
+	pt_status     = PRESSURE_OK;
+#elif defined( FLIGHT_COMPUTER_LITE )
+	baro_status   = BARO_OK;
 #endif
 
 /* Sensor poll memory */
@@ -686,7 +900,9 @@ for ( int i = 0; i < num_sensors; ++i )
 				sensor_data_ptr -> imu_data.temp = 0;
 				break;
 				}
+		#endif /* #if defined( FLIGHT_COMPUTER ) */
 
+		#if ( defined( FLIGHT_COMPUTER )  || defined( FLIGHT_COMPUTER_LITE ) )
 			case SENSOR_PRES:
 				{
 				baro_status = baro_get_temp(     &( sensor_data_ptr -> baro_temp     ) );
@@ -711,53 +927,94 @@ for ( int i = 0; i < num_sensors; ++i )
 					}
 				break;
 				}
+		#endif /* if defined( FLIGHT_COMPUTER ) || defined( FLIGHT_COMPUTER_LITE ) */
 
-		#elif defined( ENGINE_CONTROLLER )
+		#if defined( ENGINE_CONTROLLER )
 			case SENSOR_PT0:
 				{
-				sensor_data_ptr -> pt_pressures[0] = pressure_get_pt_reading( PT_NUM0 );
+				pt_status = pressure_get_pt_reading( PT_NUM0, 
+				                                    &( sensor_data_ptr -> pt_pressures[0]) );
+				if ( pt_status != PRESSURE_OK )
+					{
+					return SENSOR_PT_ERROR;
+					}
 				break;
 				}
 
 			case SENSOR_PT1:
 				{
-				sensor_data_ptr -> pt_pressures[1] = pressure_get_pt_reading( PT_NUM1 );
+				pt_status = pressure_get_pt_reading( PT_NUM1, 
+				                                    &( sensor_data_ptr -> pt_pressures[0]) );
+				if ( pt_status != PRESSURE_OK )
+					{
+					return SENSOR_PT_ERROR;
+					}
 				break;
 				}
 
 			case SENSOR_PT2:
 				{
-				sensor_data_ptr -> pt_pressures[2] = pressure_get_pt_reading( PT_NUM2 );
+				pt_status = pressure_get_pt_reading( PT_NUM2, 
+				                                    &( sensor_data_ptr -> pt_pressures[0]) );
+				if ( pt_status != PRESSURE_OK )
+					{
+					return SENSOR_PT_ERROR;
+					}
 				break;
 				}
 
 			case SENSOR_PT3:
 				{
-				sensor_data_ptr -> pt_pressures[3] = pressure_get_pt_reading( PT_NUM3 );
+				pt_status = pressure_get_pt_reading( PT_NUM3, 
+				                                    &( sensor_data_ptr -> pt_pressures[0]) );
+				if ( pt_status != PRESSURE_OK )
+					{
+					return SENSOR_PT_ERROR;
+					}
 				break;
 				}
 
 			case SENSOR_PT4:
 				{
-				sensor_data_ptr -> pt_pressures[4] = pressure_get_pt_reading( PT_NUM4 );
+				pt_status = pressure_get_pt_reading( PT_NUM4, 
+				                                    &( sensor_data_ptr -> pt_pressures[0]) );
+				if ( pt_status != PRESSURE_OK )
+					{
+					return SENSOR_PT_ERROR;
+					}
 				break;
 				}
 
 			case SENSOR_PT5:
 				{
-				sensor_data_ptr -> pt_pressures[5] = pressure_get_pt_reading( PT_NUM5 );
+				pt_status = pressure_get_pt_reading( PT_NUM5, 
+				                                    &( sensor_data_ptr -> pt_pressures[0]) );
+				if ( pt_status != PRESSURE_OK )
+					{
+					return SENSOR_PT_ERROR;
+					}
 				break;
 				}
 
 			case SENSOR_PT6:
 				{
-				sensor_data_ptr -> pt_pressures[6] = pressure_get_pt_reading( PT_NUM6 );
+				pt_status = pressure_get_pt_reading( PT_NUM6, 
+				                                    &( sensor_data_ptr -> pt_pressures[0]) );
+				if ( pt_status != PRESSURE_OK )
+					{
+					return SENSOR_PT_ERROR;
+					}
 				break;
 				}
 
 			case SENSOR_PT7:
 				{
-				sensor_data_ptr -> pt_pressures[7] = pressure_get_pt_reading( PT_NUM7 );
+				pt_status = pressure_get_pt_reading( PT_NUM7, 
+				                                    &( sensor_data_ptr -> pt_pressures[0]) );
+				if ( pt_status != PRESSURE_OK )
+					{
+					return SENSOR_PT_ERROR;
+					}
 				break;
 				}
 
@@ -774,11 +1031,29 @@ for ( int i = 0; i < num_sensors; ++i )
 
 			case SENSOR_LC:
 				{
-				sensor_data_ptr -> load_cell_force = loadcell_get_reading();
+				lc_status = loadcell_get_reading( &( sensor_data_ptr -> load_cell_force ) );
+				if ( lc_status != LOADCELL_OK )
+					{
+					return SENSOR_LC_ERROR;
+					}
+				break;
+				}
+		
+		#elif defined( VALVE_CONTROLLER )
+
+			case SENSOR_ENCO:
+				{
+				sensor_data_ptr -> lox_valve_pos = valve_get_ox_valve_pos();
 				break;
 				}
 
-		#endif /* #elif defined( ENGINE_CONTROLLER ) */
+			case SENSOR_ENCF:
+				{
+				sensor_data_ptr -> fuel_valve_pos = valve_get_fuel_valve_pos();
+				break;
+				}
+
+		#endif /* #if defined( ENGINE_CONTROLLER ) */
 
 		default:
 			{
@@ -795,14 +1070,12 @@ for ( int i = 0; i < num_sensors; ++i )
 
 return SENSOR_OK;
 } /* sensor_poll */
-#endif /* #if defined( TERMINAL ) */
 
 
 /*------------------------------------------------------------------------------
  Internal procedures 
 ------------------------------------------------------------------------------*/
 
-#if defined( TERMINAL )
 /*******************************************************************************
 *                                                                              *
 * PROCEDURE:                                                                   *
@@ -893,7 +1166,6 @@ for ( uint8_t i = 0; i < num_sensors; ++i )
 	}
 
 } /* extract_sensor_bytes */
-#endif /* #if defined( TERMINAL )*/
 
 
 /*******************************************************************************

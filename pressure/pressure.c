@@ -11,17 +11,18 @@
 
 
 /*------------------------------------------------------------------------------
- Standard Includes                                                                     
+ Standard Includes                                                              
 ------------------------------------------------------------------------------*/
 
 
 /*------------------------------------------------------------------------------
- Project Includes                                                                     
+ Project Includes                                                               
 ------------------------------------------------------------------------------*/
 #include "main.h"
 #include "sdr_pin_defines_L0002.h"
 #include "pressure.h"
 #include "led.h"
+
 
 /*------------------------------------------------------------------------------
  Global Variables 
@@ -69,9 +70,10 @@ static uint16_t amplifier_gain_map
 *       Get a single pressure transducer reading                               *
 *                                                                              *
 *******************************************************************************/
-uint32_t pressure_get_pt_reading 
+PRESSURE_STATUS pressure_get_pt_reading 
 	(
-    PRESSURE_PT_NUM pt_num
+    PRESSURE_PT_NUM pt_num,          /* PT number to pull         */
+	uint32_t*       pt_readout_ptr   /* Pointer to PT output data */
     )
 {
 /*------------------------------------------------------------------------------
@@ -79,15 +81,16 @@ uint32_t pressure_get_pt_reading
 ------------------------------------------------------------------------------*/
 uint16_t        gain_GPIO_pins_bitmask; /* GPIO pins for amplifier gain       */
 uint16_t        mux_GPIO_pins_bitmask;  /* GPIO pins for multiplexor          */
-uint32_t        pt_reading;             /* PT reading, return value           */
-PRESSURE_STATUS pt_status_code;         /* Status code from adc conversion    */
+PRESSURE_STATUS pt_status;              /* Status code from adc conversion    */
+
 
 /*------------------------------------------------------------------------------
  Initializations 
 ------------------------------------------------------------------------------*/
 gain_GPIO_pins_bitmask = amplifier_gain_map( pt_gains[ pt_num ] );
 mux_GPIO_pins_bitmask  = mux_map( pt_num );
-pt_reading             = 0;
+pt_status              = PRESSURE_OK;
+
 
 /*------------------------------------------------------------------------------
  Setup mux and gain circuits  
@@ -112,11 +115,12 @@ HAL_GPIO_WritePin( PRESSURE_GPIO_PORT    ,
 /*------------------------------------------------------------------------------
  Poll ADC once 
 ------------------------------------------------------------------------------*/
-pt_status_code = sample_adc_poll( 1, &pt_reading );
-if ( pt_status_code != PRESSURE_OK )
+pt_status = sample_adc_poll( 1, pt_readout_ptr );
+if ( pt_status != PRESSURE_OK )
 	{
-    Error_Handler();
+    return pt_status;
     }
+
 
 /*------------------------------------------------------------------------------
  Reset gain cicuitry and return  
@@ -129,7 +133,7 @@ HAL_GPIO_WritePin( PRESSURE_GPIO_PORT    ,
                    GPIO_PIN_RESET );
 
 /* Return pt reading */
-return pt_reading;
+return PRESSURE_OK;
 
 } /* pressure_get_pt_reading */
 
@@ -153,7 +157,7 @@ PRESSURE_STATUS pressure_poll_pts
 ------------------------------------------------------------------------------*/
 uint16_t        gain_GPIO_pins_bitmask; /* GPIO pins for amplifier gain       */
 uint16_t        mux_GPIO_pins_bitmask;  /* GPIO pins for multiplexor          */
-PRESSURE_STATUS pt_status_code;         /* Status code from adc conversion    */
+PRESSURE_STATUS pt_status;              /* Status code from adc conversion    */
 
 /*------------------------------------------------------------------------------
  Initializations  
@@ -188,14 +192,15 @@ for ( uint8_t i = 0; i < NUM_PTS; ++i )
 	HAL_GPIO_WritePin( PRESSURE_GPIO_PORT    ,
 					   gain_GPIO_pins_bitmask,
 					   GPIO_PIN_SET );
+    HAL_Delay( 1 );
 
 	/*--------------------------------------------------------------------------
 	 Poll ADC once 
 	--------------------------------------------------------------------------*/
-	pt_status_code = sample_adc_poll( 1, (pPT_readings + i) );
-	if ( pt_status_code != PRESSURE_OK )
+	pt_status = sample_adc_poll( 1, (pPT_readings + i) );
+	if ( pt_status != PRESSURE_OK )
 		{
-		Error_Handler();
+		return pt_status;
 		}
 
 	/*--------------------------------------------------------------------------

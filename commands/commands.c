@@ -10,11 +10,19 @@
 
 
 /*------------------------------------------------------------------------------
- Includes                                                                     
+ Standard Includes                                                               
+------------------------------------------------------------------------------*/
+#include <stdbool.h>
+
+/*------------------------------------------------------------------------------
+ Project Includes                                                               
 ------------------------------------------------------------------------------*/
 #include "main.h"
 #include "commands.h"
 #include "usb.h"
+#ifdef VALVE_CONTROLLER
+    #include "valve.h"
+#endif
 
 
 /*------------------------------------------------------------------------------
@@ -34,7 +42,11 @@
 *******************************************************************************/
 void ping
     (
-	void
+    #ifndef VALVE_CONTROLLER
+        void
+    #else
+        CMD_SOURCE cmd_source
+    #endif
     )
 {
 /*------------------------------------------------------------------------------
@@ -52,7 +64,22 @@ response = PING_RESPONSE_CODE; /* Code specific to board and revision */
 /*------------------------------------------------------------------------------
  Command Implementation                                                         
 ------------------------------------------------------------------------------*/
-usb_transmit( &response, sizeof( response ), HAL_DEFAULT_TIMEOUT );
+#ifndef VALVE_CONTROLLER 
+    usb_transmit( &response, sizeof( response ), HAL_DEFAULT_TIMEOUT );
+#else
+    if ( cmd_source == CMD_SOURCE_USB )
+        {
+        usb_transmit( &response         , 
+                      sizeof( response ), 
+                      HAL_DEFAULT_TIMEOUT );
+        }
+    else
+        {
+        valve_transmit( &response         , 
+                        sizeof( response ), 
+                        HAL_DEFAULT_TIMEOUT );
+        }
+#endif
 
 } /* ping */
 
