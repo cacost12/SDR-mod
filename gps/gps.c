@@ -33,7 +33,7 @@
 
 GPS_STATUS GPS_Transmit
     (
-    void*       data_ptr,
+    uint8_t*       data_ptr,
     size_t      data_size,
     uint32_t    timeout
     )
@@ -78,7 +78,7 @@ else
 
 GPS_STATUS GPS_Receive
     (
-    void*       data_ptr,
+    uint8_t*       data_ptr,
     size_t      data_size,
     uint32_t    timeout
     )
@@ -131,13 +131,13 @@ void GPS_Load_Config()
  API Function Implementation 
 ------------------------------------------------------------------------------*/
 
-GPS_Transmit( configUBX, sizeof(configUBX) / sizeof(uint8_t), HAL_DEFAULT_TIMEOUT );
+GPS_Transmit( &configUBX[0], sizeof(configUBX) / sizeof(uint8_t), HAL_DEFAULT_TIMEOUT );
 HAL_Delay(200);
 
-GPS_Transmit( configNMEA, sizeof(configNMEA) / sizeof(uint8_t), HAL_DEFAULT_TIMEOUT );
+GPS_Transmit( &configNMEA[0], sizeof(configNMEA) / sizeof(uint8_t), HAL_DEFAULT_TIMEOUT );
 HAL_Delay(200);
 
-GPS_Transmit( setGNSS, sizeof(setGNSS) / sizeof(uint8_t), HAL_DEFAULT_TIMEOUT );
+GPS_Transmit( &setGNSS[0], sizeof(setGNSS) / sizeof(uint8_t), HAL_DEFAULT_TIMEOUT );
 HAL_Delay(200);
 
 } /* GPS_Load_Config */
@@ -154,7 +154,7 @@ HAL_Delay(200);
 
 GPS_STATUS GPS_Get_ID
     (
-    uint8_t* data_ptr;
+    uint8_t* data_ptr
     )
 {
 /*------------------------------------------------------------------------------
@@ -167,7 +167,7 @@ GPS_STATUS gps_status;
 ------------------------------------------------------------------------------*/
 
 gps_status = GPS_Transmit( getDeviceID, sizeof( getDeviceID ) / sizeof( uint8_t ), HAL_DEFAULT_TIMEOUT );
-gps_status = GPS_Receive( data_ptr, sizeof(data_ptr), HAL_DEFAULT_TIMEOUT );
+gps_status = GPS_Receive( data_ptr, sizeof( getDeviceID ) / sizeof( uint8_t ) , HAL_DEFAULT_TIMEOUT );
 
 return gps_status;
 

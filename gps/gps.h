@@ -33,24 +33,24 @@ extern "C" {
 /*------------------------------------------------------------------------------
  Registers
 ------------------------------------------------------------------------------*/
-static const uint8_t configUBX[]= {
+static uint8_t configUBX[]= {
     #include "bin/configUBX.tbin"
 };
 
-static const uint8_t configNMEA[] = {
+static uint8_t configNMEA[] = {
     #include "bin/configNMEA.tbin"
 };
 
 //Activation of navigation system: Galileo, Glonass, GPS, SBAS, IMES
-static const uint8_t setGNSS[]={
+static uint8_t setGNSS[]={
     #include "bin/setGNSS.tbin"    
 };
 
-static const uint8_t getDeviceID[]={
+static uint8_t getDeviceID[]={
     #include "bin/deviceID.tbin"
 };
 
-static const uint8_t getNavigatorData[]={
+static uint8_t getNavigatorData[]={
     #include "bin/navigatorData.tbin"
 };
 
@@ -78,14 +78,14 @@ void GPS_Load_Config();
 
 GPS_STATUS GPS_Transmit
     (
-    void*       data_ptr,
+    uint8_t*       data_ptr,
     size_t      data_size,
     uint32_t    timeout
     );
 
 GPS_STATUS GPS_Receive
     (
-    void*       data_ptr,
+    uint8_t*       data_ptr,
     size_t      data_size,
     uint32_t    timeout
     );
