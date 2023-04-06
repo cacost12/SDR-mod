@@ -78,14 +78,14 @@ void GPS_Load_Config();
 
 GPS_STATUS GPS_Transmit
     (
-    uint8_t*       data_ptr,
+    uint8_t*    data_ptr,
     size_t      data_size,
     uint32_t    timeout
     );
 
 GPS_STATUS GPS_Receive
     (
-    uint8_t*       data_ptr,
+    uint8_t*    data_ptr,
     size_t      data_size,
     uint32_t    timeout
     );

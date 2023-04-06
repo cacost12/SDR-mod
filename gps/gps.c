@@ -166,7 +166,7 @@ GPS_STATUS gps_status;
  API Function Implementation 
 ------------------------------------------------------------------------------*/
 
-gps_status = GPS_Transmit( getDeviceID, sizeof( getDeviceID ) / sizeof( uint8_t ), HAL_DEFAULT_TIMEOUT );
+gps_status = GPS_Transmit( &getDeviceID[0], sizeof( getDeviceID ) / sizeof( uint8_t ), HAL_DEFAULT_TIMEOUT );
 gps_status = GPS_Receive( data_ptr, sizeof( getDeviceID ) / sizeof( uint8_t ) , HAL_DEFAULT_TIMEOUT );
 
 return gps_status;
@@ -197,8 +197,8 @@ GPS_STATUS gps_status;
  API Function Implementation 
 ------------------------------------------------------------------------------*/
 
-gps_status = GPS_Transmit( getNavigatorData, sizeof( getNavigatorData ) / sizeof( uint8_t ), HAL_DEFAULT_TIMEOUT );
-gps_status = GPS_Receive( data_ptr, sizeof(data_ptr), HAL_DEFAULT_TIMEOUT );
+gps_status = GPS_Transmit( &getNavigatorData[0], sizeof( getNavigatorData ) / sizeof( uint8_t ), HAL_DEFAULT_TIMEOUT );
+gps_status = GPS_Receive( data_ptr, sizeof( getNavigatorData ) / sizeof( uint8_t ), HAL_DEFAULT_TIMEOUT );
 
 return gps_status;
 
