@@ -66,7 +66,7 @@ typedef enum GPS_STATUS
     GPS_UNSUPPORTED_OP ,
     GPS_UNRECOGNIZED_OP,
     GPS_TIMEOUT    
-	} IMU_STATUS;
+	} GPS_STATUS;
 
 
 
