@@ -21,14 +21,8 @@ extern "C" {
 /*------------------------------------------------------------------------------
  Defines 
 ------------------------------------------------------------------------------*/
-
-
-
-/*------------------------------------------------------------------------------
- Defines subcommand codes
-------------------------------------------------------------------------------*/
-
-
+#define HAL_GPS_DEFAULT_TIMEOUT     1000    /* DEFAULT TIMEOUT FOR GPS UART */
+#define GPS_ID_UPC_BYTE             17      /* GPS_ID UBX UPCOMING BYTES */
 
 /*------------------------------------------------------------------------------
  Registers
@@ -92,12 +86,14 @@ GPS_STATUS GPS_Receive
 
 GPS_STATUS GPS_Get_ID
     (
-    uint8_t* data_ptr;
+    uint8_t* data_ptr,
+    uint8_t upc_byte
     );
 
 GPS_STATUS GPS_Get_NavigatorData
     (
-    uint8_t* data_ptr
+    uint8_t* data_ptr,
+    uint8_t upc_byte
     );
 
 #endif /* GPS_H */
