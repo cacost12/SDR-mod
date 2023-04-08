@@ -121,21 +121,39 @@ else
 *                                                                              *
 *******************************************************************************/
 
-void GPS_Load_Config()
+GPS_STATUS GPS_Load_Config()
 {
+/*------------------------------------------------------------------------------
+ Local Variables
+------------------------------------------------------------------------------*/
+GPS_STATUS ubx_status, nmea_status, set_gnss_status;
+
 /*------------------------------------------------------------------------------
  API Function Implementation 
 ------------------------------------------------------------------------------*/
 
-GPS_Transmit( &configUBX[0], sizeof(configUBX) / sizeof(uint8_t), HAL_GPS_DEFAULT_TIMEOUT );
+ubx_status = GPS_Transmit( &configUBX[0], sizeof(configUBX) / sizeof(uint8_t), HAL_GPS_DEFAULT_TIMEOUT );
 HAL_Delay(200);
 
-GPS_Transmit( &configNMEA[0], sizeof(configNMEA) / sizeof(uint8_t), HAL_GPS_DEFAULT_TIMEOUT );
+nmea_status = GPS_Transmit( &configNMEA[0], sizeof(configNMEA) / sizeof(uint8_t), HAL_GPS_DEFAULT_TIMEOUT );
 HAL_Delay(200);
 
-GPS_Transmit( &setGNSS[0], sizeof(setGNSS) / sizeof(uint8_t), HAL_GPS_DEFAULT_TIMEOUT );
+set_gnss_status = GPS_Transmit( &setGNSS[0], sizeof(setGNSS) / sizeof(uint8_t), HAL_GPS_DEFAULT_TIMEOUT );
 HAL_Delay(200);
 
+if
+( 
+ubx_status      == GPS_OK
+&& nmea_status     == GPS_OK
+&& set_gnss_status == GPS_OK 
+)
+    {
+    return GPS_OK;
+    }
+else
+    {
+    return GPS_FAIL;
+    }
 } /* GPS_Load_Config */
 
 
@@ -152,7 +170,7 @@ HAL_Delay(200);
 GPS_STATUS GPS_Get_ID
     (
     uint8_t* data_ptr,
-    uint8_t  upc_byte = GPS_ID_UPC_BYTE
+    uint8_t  upc_byte
     )
 {
 /*------------------------------------------------------------------------------

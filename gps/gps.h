@@ -68,7 +68,7 @@ typedef enum GPS_STATUS
  Function Prototypes 
 ------------------------------------------------------------------------------*/
 
-void GPS_Load_Config();
+GPS_STATUS GPS_Load_Config();
 
 GPS_STATUS GPS_Transmit
     (
