@@ -161,18 +161,18 @@ uint16_t mag_z 			= sensor_data_ptr->imu_data.mag_z;
 float 	 baro_pressure  = sensor_data_ptr->baro_pressure;
 float	 baro_temp		= sensor_data_ptr->baro_temp;
 
-char	 baro_temp_str[7];
+char	 baro_temp_str[11];
 
 float2str(baro_temp, baro_temp_str, sizeof(baro_temp_str) / sizeof(baro_temp_str[0]) , 2);
-char	 baro_pressure_str[7];
+char	 baro_pressure_str[11];
 
 float2str(baro_pressure, baro_pressure_str, sizeof(baro_pressure_str) / sizeof(baro_pressure_str[0]), 2);
 sprintf(
 		pbuffer_str, 
-		"time: %d,accelX: %d,accelY: %d,accelZ:"
-        "%d,gyroX: %d,gyroY: %d,gyroZ: "
-        "%d,magX: %d,magY: %d,magZ: "
-        "%d,baro_pres: %s,baro_temp: %s",
+		"time: %d,accelX: %d,accelY: %d,accelZ: %d,"
+        "gyroX: %d,gyroY: %d,gyroZ: %d,"
+        "magX: %d,magY: %d,magZ: %d,"
+        "baro_pres: %s,baro_temp: %s",
 		time, accel_x, accel_y, accel_z,
 		gyro_x, gyro_y, gyro_z, 
 		mag_x, mag_y, mag_z, 
